@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>حجز</title>
+<style>
+body { font-family: Arial, sans-serif; margin: 0; padding: 15px; background: #f9f9f9; }
+h1 { cursor: pointer; color: #007bff; text-align: center; }
+#booking { display: none; max-width: 400px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+label { display: block; margin: 15px 0 5px; font-weight: bold; }
+input[type="date"], input[type="text"] { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; }
+button { padding: 10px 15px; margin: 5px; border: none; border-radius: 5px; background: #e9ecef; cursor: pointer; }
+button.selected { background: #007bff; color: white; }
+.meal-btn { display: block; width: 100%; text-align: right; }
+#toggleDessert { width: 100%; background: #007bff; color: white; font-weight: bold; }
+.dessert-btn { display: block; width: 100%; text-align: right; font-size: 0.95em; }
+#dessertMenu { display: none; margin-top: 10px; }
+#summary, #included, #total { margin: 20px 0; font-size: 1.1em; }
+#total { font-size: 1.4em; color: #007bff; }
+#notes { font-size: 0.95em; color: #555; }
+#notesList > div { margin: 8px 0; }
+.submit-btn { width: 100%; padding: 15px; background: #28a745; color: white; font-size: 1.2em; margin-top: 20px; }
+</style>
+</head>
+<body>
+
+<h1>للحجز اضغط هنا</h1>
+
+<div id="booking">
+  <label>بداية الحجز</label>
+  <input type="date" id="start">
+
+  <label>نهاية الحجز</label>
+  <input type="date" id="end">
+
+  <p style="margin-top:20px;">الوجبات اليومية (تكفي 5 أشخاص):</p>
+  <button class="meal meal-btn" data-meal="إفطار">إفطار</button>
+  <button class="meal meal-btn" data-meal="غداء">غداء</button>
+  <button class="meal meal-btn" data-meal="عشاء">عشاء</button>
+
+  <p style="margin-top:20px;">
+    <button id="toggleDessert">فوالة ▾</button>
+  </p>
+  <div id="dessertMenu">
+    <button class="dessert dessert-btn" data-name="خبز رقاق" data-price="50">خبز رقاق - 50 درهم</button>
+    <button class="dessert dessert-btn" data-name="خبز محلى" data-price="50">خبز محلى - 50 درهم</button>
+    <button class="dessert dessert-btn" data-name="بلاليط" data-price="100">بلاليط - 100 درهم</button>
+    <button class="dessert dessert-btn" data-name="قرص" data-price="100">قرص - 100 درهم</button>
+    <button class="dessert dessert-btn" data-name="لقيمات" data-price="100">لقيمات - 100 درهم</button>
+    <button class="dessert dessert-btn" data-name="معكرونة" data-price="120">معكرونة - 120 درهم</button>
+    <button class="dessert dessert-btn" data-name="عصيدة" data-price="120">عصيدة - 120 درهم</button>
+    <button class="dessert dessert-btn" data-name="هريس" data-price="200">هريس - 200 درهم</button>
+  </div>
+
+  <label style="margin-top:20px;">إضافات أخرى</label>
+  <input type="text" id="extra" placeholder="اكتب ملاحظة ثم اضغط Enter">
+
+  <div id="summary"></div>
+  <div id="included"></div>
+  <div id="total">إجمالي: 0 درهم</div>
+  <div id="notes">الملاحظات:<div id="notesList"></div></div>
+
+  <form action="https://payment-gateway-url.com/pay" method="POST" target="_blank">
+    <input type="hidden" name="amount" id="payAmount" value="0">
+    <button type="submit" class="submit-btn">التأكيد</button>
+  </form>
+</div>
+
+<script>
+document.querySelector('h1').onclick = () => {
+  document.getElementById('booking').style.display = 'block';
+};
+
+document.getElementById('toggleDessert').onclick = () => {
+  const menu = document.getElementById('dessertMenu');
+  menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+};
+
+document.querySelectorAll('.meal').forEach(btn => {
+  btn.onclick = () => btn.classList.toggle('selected');
+});
+
+document.querySelectorAll('.dessert').forEach(btn => {
+  btn.onclick = () => {
+    btn.classList.toggle('selected');
+    updateSummary();
+  };
+});
+
+['start', 'end'].forEach(id => {
+  document.getElementById(id).onchange = updateSummary;
+});
+
+const extraInput = document.getElementById('extra');
+extraInput.onkeydown = (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    addNote();
+  }
+};
+
+function addNote() {
+  const val = extraInput.value.trim();
+  if (val) {
+    const div = document.createElement('div');
+    div.textContent = `ملاحظة: ${val} (سيتم تقييمها)`;
+    document.getElementById('notesList').appendChild(div);
+    extraInput.value = '';
+  }
+}
+
+function updateSummary() {
+  const start = new Date(document.getElementById('start').value);
+  const end = new Date(document.getElementById('end').value);
+  let text = '';
+  let included = '';
+  let total = 0;
+  let nights = 0;
+
+  if (start && end && end >= start) {
+    nights = (end - start) / 86400000;
+    text = `${nights} ليالي`;
+    total += nights * 1200;
+  }
+
+  const meals = Array.from(document.querySelectorAll('.meal.selected')).map(b => b.dataset.meal);
+  if (meals.length) {
+    included += 'شامل: ' + meals.join(' ، ');
+    total += meals.length * 150 * (nights || 1);
+  }
+
+  const desserts = Array.from(document.querySelectorAll('.dessert.selected'));
+  if (desserts.length) {
+    const names = desserts.map(b => b.dataset.name);
+    included += (included ? ' ، ' : 'شامل: ') + names.join(' ، ');
+    total += desserts.reduce((sum, b) => sum + parseInt(b.dataset.price), 0);
+  }
+
+  document.getElementById('summary').textContent = text ? 'الطلب: ' + text : '';
+  document.getElementById('included').textContent = included;
+  document.getElementById('total').textContent = `إجمالي: ${total} درهم`;
+  document.getElementById('payAmount').value = total;
+}
+
+setInterval(updateSummary, 500);
+</script>
+</body>
+</html>
